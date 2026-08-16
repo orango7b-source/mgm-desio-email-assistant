@@ -218,51 +218,24 @@ async function generateDraft(){
   out.className = "outputbox loading";
   out.innerHTML = '<span class="dot"></span>Sto scrivendo la bozza...';
 
-  const systemPrompt = `Sei l'assistente di scrittura email per il Direttore della Piscina di Desio (MGM Sport / Team Lombardia Nuoto).
-
-Il tuo compito: leggere l'email ricevuta da un cliente/socio e scrivere UNA bozza di risposta in italiano, pronta perché il direttore la rilegga e la invii.
-
-Regole:
-- Scrivi solo il corpo dell'email di risposta (niente oggetto, niente spiegazioni, niente markdown, niente virgolette attorno al testo).
-- Tono di default: professionale, cordiale e diretto, come un direttore di un centro sportivo che risponde a un socio. Se nelle note viene indicato un tono o un contenuto specifico, seguilo fedelmente: ha sempre priorità.
-- Se l'email del cliente contiene richieste concrete (recuperi, rimborsi, orari, certificati medici, iscrizioni) e le note non specificano la risposta, scrivi una bozza plausibile ma segnala chiaramente tra parentesi quadre i punti da verificare o completare, es: [confermare disponibilità con la segreteria].
-- Non inventare dati specifici (date, importi, nomi di istruttori) se non presenti nell'email o nelle note: usa placeholder tra parentesi quadre.
-- Chiudi con un saluto cordiale e firma come "La Direzione, Piscina di Desio" salvo diversa indicazione nelle note.
-- Scrivi in italiano corretto e naturale, frasi brevi, senza tono burocratico eccessivo.`;
-
-  const userPrompt = `EMAIL RICEVUTA DAL CLIENTE:
-"""
-${clientEmail}
-"""
-
-NOTE DEL DIRETTORE PER LA RISPOSTA (se vuote, usa il tono di default):
-"""
-${note || "(nessuna nota specifica)"}
-"""
-
-Scrivi ora la bozza di risposta.`;
-
   try{
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("/.netlify/functions/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [
-          { role: "user", content: userPrompt }
-        ]
+        clientEmail: clientEmail,
+        note: note,
+        location: "Desio"
       })
     });
 
+    const data = await response.json();
+
     if(!response.ok){
-      throw new Error("Errore di rete (" + response.status + ")");
+      throw new Error(data.error || ("Errore di rete (" + response.status + ")"));
     }
 
-    const data = await response.json();
-    const textBlocks = (data.content || []).filter(b => b.type === "text").map(b => b.text);
-    const draft = textBlocks.join("\n").trim();
+    const draft = (data.draft || "").trim();
 
     if(!draft){
       throw new Error("Risposta vuota dal modello.");
